@@ -50,6 +50,29 @@ def text2img(text: str):
 
     return StreamingResponse(io.BytesIO(img.tobytes()), media_type="image/png")
 
+# create a img2img route
+@app.post("/img2img")
+def img2img(prompt: str, img: UploadFile = File(...)):
+    device = get_device()
+    img2img_pipe = StableDiffusionImg2ImgPipeline.from_pretrained("../model")
+    img2img_pipe.to(device)
+
+    img = Image.open(img.file).convert("RGB")
+    init_img = img.resize((768, 512))
+
+    # generate an image
+    img = img2img_pipe(prompt, init_img).images[0]
+
+    img = np.array(img)
+    img = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+    res, img = cv2.imencode(".png", img)
+
+    del img2img_pipe
+    if torch.cuda.is_available():
+        torch.cuda.empty_cache()
+
+    return StreamingResponse(io.BytesIO(img.tobytes()), media_type="image/png")
+
 # run the app
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
